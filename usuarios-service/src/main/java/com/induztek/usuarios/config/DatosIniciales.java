@@ -59,6 +59,7 @@ public class DatosIniciales implements CommandLineRunner {
                     .correo(jefeCorreo)
                     .passwordHash(passwordEncoder.encode(jefeContrasena))
                     .activo(true)
+                    .debeCambiarContrasena(true)
                     .build());
         }
     }

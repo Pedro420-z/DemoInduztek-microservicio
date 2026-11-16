@@ -12,6 +12,7 @@ public record UsuarioResponse(
         boolean activo,
         String giro,
         String contactoNombre,
-        String contactoCargo
+        String contactoCargo,
+        boolean debeCambiarContrasena
 ) {
 }

@@ -62,6 +62,10 @@ public class Usuario {
     @Column(name = "contacto_cargo", length = 80)
     private String contactoCargo;
 
+    @Column(name = "debe_cambiar_contrasena", nullable = false)
+    @Builder.Default
+    private boolean debeCambiarContrasena = false;
+
     @Column(name = "codigo_recuperacion", length = 10)
     private String codigoRecuperacion;
 

@@ -39,6 +39,7 @@ public class UsuarioService {
     private final PasswordEncoder passwordEncoder;
     private final GeneradorCodigo generadorCodigo;
     private final Clock reloj;
+    private final NotificadorCorreo notificador;
 
     public List<UsuarioResponse> listar(String buscar, Long rolId) {
         String texto = buscar == null ? "" : buscar.trim();
@@ -72,7 +73,6 @@ public class UsuarioService {
 
         validarNombre(datos.nombre());
         validarCorreo(datos.correo());
-        validarContrasena(datos.contrasena());
         if (!RutValidator.esValido(datos.rut())) {
             throw error(HttpStatus.BAD_REQUEST, "RUT inválido (revisa el dígito verificador)");
         }
@@ -86,19 +86,23 @@ public class UsuarioService {
             throw error(HttpStatus.CONFLICT, "Ese correo ya está registrado");
         }
 
+        String contrasenaTemporal = generadorCodigo.generarContrasenaTemporal();
         Usuario nuevo = Usuario.builder()
                 .rol(rol)
                 .rut(rut)
                 .nombre(datos.nombre().trim())
                 .correo(correo)
                 .telefono(limpiar(datos.telefono()))
-                .passwordHash(passwordEncoder.encode(datos.contrasena()))
+                .passwordHash(passwordEncoder.encode(contrasenaTemporal))
+                .debeCambiarContrasena(true)
                 .activo(actorEsJefe)
                 .giro(creaCliente ? limpiar(datos.giro()) : null)
                 .contactoNombre(creaCliente ? limpiar(datos.contactoNombre()) : null)
                 .contactoCargo(creaCliente ? limpiar(datos.contactoCargo()) : null)
                 .build();
-        return aRespuesta(usuarioRepository.save(nuevo));
+        Usuario guardado = usuarioRepository.save(nuevo);
+        notificador.enviarContrasenaTemporal(guardado.getCorreo(), guardado.getNombre(), contrasenaTemporal);
+        return aRespuesta(guardado);
     }
 
     public UsuarioResponse iniciarSesion(LoginRequest datos) {
@@ -143,6 +147,7 @@ public class UsuarioService {
             throw error(HttpStatus.BAD_REQUEST, "La nueva contraseña debe ser distinta de la actual");
         }
         usuario.setPasswordHash(passwordEncoder.encode(datos.nueva()));
+        usuario.setDebeCambiarContrasena(false);
         usuarioRepository.save(usuario);
     }
 
@@ -185,6 +190,7 @@ public class UsuarioService {
         }
         validarContrasena(datos.nueva());
         usuario.setPasswordHash(passwordEncoder.encode(datos.nueva()));
+        usuario.setDebeCambiarContrasena(false);
         usuario.setCodigoRecuperacion(null);
         usuario.setRecuperacionExpira(null);
         usuarioRepository.save(usuario);
@@ -256,7 +262,8 @@ public class UsuarioService {
                 usuario.isActivo(),
                 usuario.getGiro(),
                 usuario.getContactoNombre(),
-                usuario.getContactoCargo()
+                usuario.getContactoCargo(),
+                usuario.isDebeCambiarContrasena()
         );
     }
 }
