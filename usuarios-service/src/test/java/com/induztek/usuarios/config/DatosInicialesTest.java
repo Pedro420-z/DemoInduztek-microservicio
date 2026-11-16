@@ -79,6 +79,7 @@ class DatosInicialesTest {
         assertEquals("hash", jefe.getValue().getPasswordHash());
         assertEquals("JEFE_TECNICO", jefe.getValue().getRol().getCodigo());
         assertTrue(jefe.getValue().isActivo());
+        assertTrue(jefe.getValue().isDebeCambiarContrasena());
     }
 
     @Test

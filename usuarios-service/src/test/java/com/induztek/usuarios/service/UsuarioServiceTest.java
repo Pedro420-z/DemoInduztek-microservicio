@@ -45,6 +45,7 @@ import static org.mockito.Mockito.when;
 class UsuarioServiceTest {
 
     private static final String CLAVE = "secreto1";
+    private static final String TEMPORAL = "Temporal23x";
     private static final String RUT_VALIDO = "14.226.791-8";
 
     @Mock
@@ -55,6 +56,9 @@ class UsuarioServiceTest {
 
     @Mock
     private GeneradorCodigo generadorCodigo;
+
+    @Mock
+    private NotificadorCorreo notificador;
 
     private final PasswordEncoder encoder = new BCryptPasswordEncoder(4);
     private final Clock reloj = Clock.fixed(Instant.parse("2026-11-15T12:00:00Z"), ZoneOffset.UTC);
@@ -67,7 +71,7 @@ class UsuarioServiceTest {
 
     @BeforeEach
     void preparar() {
-        servicio = new UsuarioService(usuarioRepository, rolRepository, encoder, generadorCodigo, reloj);
+        servicio = new UsuarioService(usuarioRepository, rolRepository, encoder, generadorCodigo, reloj, notificador);
     }
 
     private Usuario usuario(Long id, Rol rol, boolean activo) {
@@ -82,8 +86,8 @@ class UsuarioServiceTest {
                 .build();
     }
 
-    private CrearUsuarioRequest peticion(Long rolId, String rut, String correo, String contrasena) {
-        return new CrearUsuarioRequest(rut, "Ana Torres", correo, " 987654321 ", contrasena, rolId,
+    private CrearUsuarioRequest peticion(Long rolId, String rut, String correo) {
+        return new CrearUsuarioRequest(rut, "Ana Torres", correo, " 987654321 ", rolId,
                 "Alimentos", "Marcela Fuentes", "Jefa de Mantenimiento");
     }
 
@@ -146,11 +150,12 @@ class UsuarioServiceTest {
 
     @Test
     void crear_jefeCreaPersonal_quedaActivoConClaveEncriptada() {
+        when(generadorCodigo.generarContrasenaTemporal()).thenReturn(TEMPORAL);
         actorJefe();
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rolTecnico));
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
-        UsuarioResponse respuesta = servicio.crear(1L, peticion(1L, RUT_VALIDO, "  ANA@Induztek.CL ", CLAVE));
+        UsuarioResponse respuesta = servicio.crear(1L, peticion(1L, RUT_VALIDO, "  ANA@Induztek.CL "));
 
         assertTrue(respuesta.activo());
         assertEquals("14226791-8", respuesta.rut());
@@ -161,25 +166,28 @@ class UsuarioServiceTest {
 
     @Test
     void crear_guardaLaClaveSoloComoHash() {
+        when(generadorCodigo.generarContrasenaTemporal()).thenReturn(TEMPORAL);
         actorJefe();
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rolTecnico));
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
-        servicio.crear(1L, peticion(1L, RUT_VALIDO, "ana@induztek.cl", CLAVE));
+        servicio.crear(1L, peticion(1L, RUT_VALIDO, "ana@induztek.cl"));
 
         org.mockito.ArgumentCaptor<Usuario> guardado = org.mockito.ArgumentCaptor.forClass(Usuario.class);
         verify(usuarioRepository).save(guardado.capture());
-        assertNotEquals(CLAVE, guardado.getValue().getPasswordHash());
-        assertTrue(encoder.matches(CLAVE, guardado.getValue().getPasswordHash()));
+        assertNotEquals(TEMPORAL, guardado.getValue().getPasswordHash());
+        assertTrue(encoder.matches(TEMPORAL, guardado.getValue().getPasswordHash()));
+        assertTrue(guardado.getValue().isDebeCambiarContrasena());
     }
 
     @Test
     void crear_jefeCreaCliente_guardaLosDatosDeLaEmpresa() {
+        when(generadorCodigo.generarContrasenaTemporal()).thenReturn(TEMPORAL);
         actorJefe();
         when(rolRepository.findById(4L)).thenReturn(Optional.of(rolCliente));
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
-        UsuarioResponse respuesta = servicio.crear(1L, peticion(4L, RUT_VALIDO, "cliente@empresa.cl", CLAVE));
+        UsuarioResponse respuesta = servicio.crear(1L, peticion(4L, RUT_VALIDO, "cliente@empresa.cl"));
 
         assertTrue(respuesta.activo());
         assertEquals("Alimentos", respuesta.giro());
@@ -188,11 +196,12 @@ class UsuarioServiceTest {
 
     @Test
     void crear_tecnicoCreaCliente_quedaInactivoHastaQueElJefeLoHabilite() {
+        when(generadorCodigo.generarContrasenaTemporal()).thenReturn(TEMPORAL);
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolTecnico, true)));
         when(rolRepository.findById(4L)).thenReturn(Optional.of(rolCliente));
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
-        UsuarioResponse respuesta = servicio.crear(2L, peticion(4L, RUT_VALIDO, "cliente@empresa.cl", CLAVE));
+        UsuarioResponse respuesta = servicio.crear(2L, peticion(4L, RUT_VALIDO, "cliente@empresa.cl"));
 
         assertFalse(respuesta.activo());
     }
@@ -202,7 +211,7 @@ class UsuarioServiceTest {
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolTecnico, true)));
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rolTecnico));
 
-        assertEstado(HttpStatus.FORBIDDEN, () -> servicio.crear(2L, peticion(1L, RUT_VALIDO, "a@b.cl", CLAVE)));
+        assertEstado(HttpStatus.FORBIDDEN, () -> servicio.crear(2L, peticion(1L, RUT_VALIDO, "a@b.cl")));
         verify(usuarioRepository, never()).save(any(Usuario.class));
     }
 
@@ -210,33 +219,33 @@ class UsuarioServiceTest {
     void crear_conActorCliente_lanza403() {
         when(usuarioRepository.findById(5L)).thenReturn(Optional.of(usuario(5L, rolCliente, true)));
 
-        assertEstado(HttpStatus.FORBIDDEN, () -> servicio.crear(5L, peticion(4L, RUT_VALIDO, "a@b.cl", CLAVE)));
+        assertEstado(HttpStatus.FORBIDDEN, () -> servicio.crear(5L, peticion(4L, RUT_VALIDO, "a@b.cl")));
     }
 
     @Test
     void crear_conActorInactivo_lanza403() {
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolJefe, false)));
 
-        assertEstado(HttpStatus.FORBIDDEN, () -> servicio.crear(2L, peticion(1L, RUT_VALIDO, "a@b.cl", CLAVE)));
+        assertEstado(HttpStatus.FORBIDDEN, () -> servicio.crear(2L, peticion(1L, RUT_VALIDO, "a@b.cl")));
     }
 
     @Test
     void crear_sinIndicarActor_lanza401() {
-        assertEstado(HttpStatus.UNAUTHORIZED, () -> servicio.crear(null, peticion(1L, RUT_VALIDO, "a@b.cl", CLAVE)));
+        assertEstado(HttpStatus.UNAUTHORIZED, () -> servicio.crear(null, peticion(1L, RUT_VALIDO, "a@b.cl")));
     }
 
     @Test
     void crear_conActorInexistente_lanza401() {
         when(usuarioRepository.findById(77L)).thenReturn(Optional.empty());
 
-        assertEstado(HttpStatus.UNAUTHORIZED, () -> servicio.crear(77L, peticion(1L, RUT_VALIDO, "a@b.cl", CLAVE)));
+        assertEstado(HttpStatus.UNAUTHORIZED, () -> servicio.crear(77L, peticion(1L, RUT_VALIDO, "a@b.cl")));
     }
 
     @Test
     void crear_sinRol_lanza400() {
         actorJefe();
 
-        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(1L, peticion(null, RUT_VALIDO, "a@b.cl", CLAVE)));
+        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(1L, peticion(null, RUT_VALIDO, "a@b.cl")));
     }
 
     @Test
@@ -244,7 +253,7 @@ class UsuarioServiceTest {
         actorJefe();
         when(rolRepository.findById(9L)).thenReturn(Optional.empty());
 
-        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(1L, peticion(9L, RUT_VALIDO, "a@b.cl", CLAVE)));
+        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(1L, peticion(9L, RUT_VALIDO, "a@b.cl")));
     }
 
     @Test
@@ -252,15 +261,30 @@ class UsuarioServiceTest {
         actorJefe();
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rolTecnico));
 
-        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(1L, peticion(1L, "14.226.791-9", "a@b.cl", CLAVE)));
+        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(1L, peticion(1L, "14.226.791-9", "a@b.cl")));
     }
 
     @Test
-    void crear_conContrasenaCorta_lanza400() {
+    void crear_enviaLaContrasenaTemporalPorCorreoYNoLaDevuelve() {
+        when(generadorCodigo.generarContrasenaTemporal()).thenReturn(TEMPORAL);
+        actorJefe();
+        when(rolRepository.findById(1L)).thenReturn(Optional.of(rolTecnico));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+
+        UsuarioResponse respuesta = servicio.crear(1L, peticion(1L, RUT_VALIDO, "ana@induztek.cl"));
+
+        verify(notificador).enviarContrasenaTemporal("ana@induztek.cl", "Ana Torres", TEMPORAL);
+        assertTrue(respuesta.debeCambiarContrasena());
+    }
+
+    @Test
+    void crear_conErrorDeValidacion_noEnviaCorreo() {
         actorJefe();
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rolTecnico));
 
-        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(1L, peticion(1L, RUT_VALIDO, "a@b.cl", "123")));
+        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(1L, peticion(1L, RUT_VALIDO, "sin-arroba")));
+
+        verify(notificador, never()).enviarContrasenaTemporal(any(), any(), any());
     }
 
     @Test
@@ -268,14 +292,14 @@ class UsuarioServiceTest {
         actorJefe();
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rolTecnico));
 
-        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(1L, peticion(1L, RUT_VALIDO, "sin-arroba", CLAVE)));
+        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(1L, peticion(1L, RUT_VALIDO, "sin-arroba")));
     }
 
     @Test
     void crear_conNombreVacio_lanza400() {
         actorJefe();
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rolTecnico));
-        CrearUsuarioRequest datos = new CrearUsuarioRequest(RUT_VALIDO, "  ", "a@b.cl", null, CLAVE, 1L, null, null, null);
+        CrearUsuarioRequest datos = new CrearUsuarioRequest(RUT_VALIDO, "  ", "a@b.cl", null, 1L, null, null, null);
 
         assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(1L, datos));
     }
@@ -286,7 +310,7 @@ class UsuarioServiceTest {
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rolTecnico));
         when(usuarioRepository.existsByRut("14226791-8")).thenReturn(true);
 
-        assertEstado(HttpStatus.CONFLICT, () -> servicio.crear(1L, peticion(1L, RUT_VALIDO, "a@b.cl", CLAVE)));
+        assertEstado(HttpStatus.CONFLICT, () -> servicio.crear(1L, peticion(1L, RUT_VALIDO, "a@b.cl")));
     }
 
     @Test
@@ -295,7 +319,7 @@ class UsuarioServiceTest {
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rolTecnico));
         when(usuarioRepository.existsByCorreo("a@b.cl")).thenReturn(true);
 
-        assertEstado(HttpStatus.CONFLICT, () -> servicio.crear(1L, peticion(1L, RUT_VALIDO, "a@b.cl", CLAVE)));
+        assertEstado(HttpStatus.CONFLICT, () -> servicio.crear(1L, peticion(1L, RUT_VALIDO, "a@b.cl")));
     }
 
     @Test
@@ -393,11 +417,13 @@ class UsuarioServiceTest {
     @Test
     void cambiarContrasena_conClaveActualCorrecta_guardaElNuevoHash() {
         Usuario existente = usuario(2L, rolTecnico, true);
+        existente.setDebeCambiarContrasena(true);
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(existente));
 
         servicio.cambiarContrasena(2L, new CambiarContrasenaRequest(CLAVE, "nuevaClave9"));
 
         assertTrue(encoder.matches("nuevaClave9", existente.getPasswordHash()));
+        assertFalse(existente.isDebeCambiarContrasena());
         verify(usuarioRepository).save(existente);
     }
 
@@ -514,6 +540,7 @@ class UsuarioServiceTest {
     @Test
     void confirmarRecuperacion_conCodigoVigente_cambiaLaClaveYBorraElCodigo() {
         Usuario existente = usuario(2L, rolTecnico, true);
+        existente.setDebeCambiarContrasena(true);
         existente.setCodigoRecuperacion("123456");
         existente.setRecuperacionExpira(LocalDateTime.of(2026, 11, 15, 12, 10));
         when(usuarioRepository.findByCorreo("usuario2@induztek.cl")).thenReturn(Optional.of(existente));
@@ -523,6 +550,7 @@ class UsuarioServiceTest {
         assertTrue(encoder.matches("claveNueva1", existente.getPasswordHash()));
         assertNull(existente.getCodigoRecuperacion());
         assertNull(existente.getRecuperacionExpira());
+        assertFalse(existente.isDebeCambiarContrasena());
         verify(usuarioRepository).save(existente);
     }
 

@@ -44,7 +44,7 @@ class UsuarioControllerTest {
 
     private UsuarioResponse respuesta(Long id, boolean activo) {
         return new UsuarioResponse(id, 1L, "TECNICO", "Técnico", "14226791-8", "Matías Godoy",
-                "mgodoy@induztek.cl", null, activo, null, null, null);
+                "mgodoy@induztek.cl", null, activo, null, null, null, false);
     }
 
     @Test
@@ -102,7 +102,7 @@ class UsuarioControllerTest {
                         .header("X-Usuario-Id", "7")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"rut\":\"14.226.791-8\",\"nombre\":\"Ana\",\"correo\":\"ana@induztek.cl\","
-                                + "\"contrasena\":\"secreto1\",\"rolId\":1}"))
+                                + "\"rolId\":1}"))
                 .andExpect(status().isCreated());
 
         verify(usuarioService).crear(eq(7L), any(CrearUsuarioRequest.class));
