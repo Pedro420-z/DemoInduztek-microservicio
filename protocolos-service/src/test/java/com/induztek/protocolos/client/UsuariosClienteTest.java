@@ -32,7 +32,7 @@ class UsuariosClienteTest {
 
     @BeforeEach
     void iniciar() throws IOException {
-        servidor = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        servidor = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         servidor.createContext("/api/usuarios/7", exchange -> responder(exchange, 200, USUARIO));
         servidor.createContext("/api/usuarios/404", exchange -> responder(exchange, 404, "{}"));
         servidor.createContext("/api/usuarios/500", exchange -> responder(exchange, 500, "{}"));
@@ -45,7 +45,7 @@ class UsuariosClienteTest {
     }
 
     private String url() {
-        return "http://localhost:" + servidor.getAddress().getPort();
+        return "http://127.0.0.1:" + servidor.getAddress().getPort();
     }
 
     private static void responder(HttpExchange exchange, int codigo, String cuerpo) throws IOException {
@@ -87,7 +87,7 @@ class UsuariosClienteTest {
         try (ServerSocket socket = new ServerSocket(0)) {
             puertoLibre = socket.getLocalPort();
         }
-        UsuariosCliente cliente = new UsuariosCliente("http://localhost:" + puertoLibre);
+        UsuariosCliente cliente = new UsuariosCliente("http://127.0.0.1:" + puertoLibre);
 
         ResponseStatusException error = assertThrows(ResponseStatusException.class, () -> cliente.buscar(7L));
 
