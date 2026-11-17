@@ -8,4 +8,6 @@ import java.util.List;
 public interface TipoEquipoPruebaRepository extends JpaRepository<TipoEquipoPrueba, Long> {
 
     List<TipoEquipoPrueba> findByTipoEquipoId(Long tipoEquipoId);
+
+    boolean existsByTipoEquipoIdAndTipoPruebaId(Long tipoEquipoId, Long tipoPruebaId);
 }
