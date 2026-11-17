@@ -8,6 +8,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ActorService {
@@ -26,6 +28,14 @@ public class ActorService {
         }
         if (Roles.CLIENTE.equals(actor.rolCodigo())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Un cliente no puede realizar esta acción");
+        }
+        return actor;
+    }
+
+    public UsuarioExterno exigirRol(Long actorId, String mensaje, String... roles) {
+        UsuarioExterno actor = exigirPersonalActivo(actorId);
+        if (!List.of(roles).contains(actor.rolCodigo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, mensaje);
         }
         return actor;
     }
