@@ -58,8 +58,10 @@ public class UsuarioController {
     }
 
     @PutMapping("/{id}")
-    public UsuarioResponse actualizarPerfil(@PathVariable Long id, @RequestBody ActualizarPerfilRequest datos) {
-        return usuarioService.actualizarPerfil(id, datos);
+    public UsuarioResponse actualizarPerfil(@RequestHeader(value = CABECERA_ACTOR, required = false) Long actorId,
+                                            @PathVariable Long id,
+                                            @RequestBody ActualizarPerfilRequest datos) {
+        return usuarioService.actualizarPerfil(actorId, id, datos);
     }
 
     @PutMapping("/{id}/contrasena")

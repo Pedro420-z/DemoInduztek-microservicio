@@ -195,7 +195,7 @@ class UsuarioServiceTest {
     }
 
     @Test
-    void crear_tecnicoCreaCliente_quedaInactivoHastaQueElJefeLoHabilite() {
+    void crear_tecnicoCreaCliente_quedaActivo() {
         when(generadorCodigo.generarContrasenaTemporal()).thenReturn(TEMPORAL);
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolTecnico, true)));
         when(rolRepository.findById(4L)).thenReturn(Optional.of(rolCliente));
@@ -203,7 +203,7 @@ class UsuarioServiceTest {
 
         UsuarioResponse respuesta = servicio.crear(2L, peticion(4L, RUT_VALIDO, "cliente@empresa.cl"));
 
-        assertFalse(respuesta.activo());
+        assertTrue(respuesta.activo());
     }
 
     @Test
@@ -369,27 +369,25 @@ class UsuarioServiceTest {
     }
 
     @Test
-    void actualizarPerfil_deUnTecnico_cambiaDatosPersonalesYNoLosDeEmpresa() {
+    void actualizarPerfil_deUnTecnicoSobreSiMismo_cambiaNombreYTelefonoPeroNoCorreoNiEmpresa() {
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolTecnico, true)));
-        when(usuarioRepository.existsByCorreoAndIdNot("nuevo@induztek.cl", 2L)).thenReturn(false);
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
-        UsuarioResponse respuesta = servicio.actualizarPerfil(2L,
-                new ActualizarPerfilRequest("Nombre Nuevo", "Nuevo@Induztek.cl", "  ", "Giro", "Contacto", "Cargo"));
+        UsuarioResponse respuesta = servicio.actualizarPerfil(2L, 2L,
+                new ActualizarPerfilRequest("Nombre Nuevo", "otro@induztek.cl", "  ", "Giro", "Contacto", "Cargo"));
 
         assertEquals("Nombre Nuevo", respuesta.nombre());
-        assertEquals("nuevo@induztek.cl", respuesta.correo());
+        assertEquals("usuario2@induztek.cl", respuesta.correo());
         assertNull(respuesta.telefono());
         assertNull(respuesta.giro());
     }
 
     @Test
-    void actualizarPerfil_deUnCliente_actualizaTambienLosDatosDeEmpresa() {
+    void actualizarPerfil_deUnClienteSobreSiMismo_actualizaTambienLosDatosDeEmpresa() {
         when(usuarioRepository.findById(5L)).thenReturn(Optional.of(usuario(5L, rolCliente, true)));
-        when(usuarioRepository.existsByCorreoAndIdNot("c@empresa.cl", 5L)).thenReturn(false);
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
-        UsuarioResponse respuesta = servicio.actualizarPerfil(5L,
+        UsuarioResponse respuesta = servicio.actualizarPerfil(5L, 5L,
                 new ActualizarPerfilRequest("Cliente", "c@empresa.cl", "123456789", "Minería", "Pedro", "Supervisor"));
 
         assertEquals("Minería", respuesta.giro());
@@ -398,19 +396,86 @@ class UsuarioServiceTest {
     }
 
     @Test
-    void actualizarPerfil_conCorreoDeOtroUsuario_lanza409() {
+    void actualizarPerfil_tecnicoEditaCliente_permitido() {
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolTecnico, true)));
-        when(usuarioRepository.existsByCorreoAndIdNot("otro@induztek.cl", 2L)).thenReturn(true);
+        when(usuarioRepository.findById(5L)).thenReturn(Optional.of(usuario(5L, rolCliente, true)));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
-        assertEstado(HttpStatus.CONFLICT, () -> servicio.actualizarPerfil(2L,
-                new ActualizarPerfilRequest("Nombre", "otro@induztek.cl", null, null, null, null)));
+        UsuarioResponse respuesta = servicio.actualizarPerfil(2L, 5L,
+                new ActualizarPerfilRequest("Empresa Editada", null, null, "Salud", null, null));
+
+        assertEquals("Empresa Editada", respuesta.nombre());
+        assertEquals("Salud", respuesta.giro());
+    }
+
+    @Test
+    void actualizarPerfil_jefeEditaPersonal_permitido() {
+        actorJefe();
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolTecnico, true)));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+
+        UsuarioResponse respuesta = servicio.actualizarPerfil(1L, 2L,
+                new ActualizarPerfilRequest("Técnico Editado", null, "99", null, null, null));
+
+        assertEquals("Técnico Editado", respuesta.nombre());
+    }
+
+    @Test
+    void actualizarPerfil_tecnicoEditaPersonal_lanza403() {
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolTecnico, true)));
+        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuario(3L, rolTecnico, true)));
+
+        assertEstado(HttpStatus.FORBIDDEN, () -> servicio.actualizarPerfil(2L, 3L,
+                new ActualizarPerfilRequest("Nombre", null, null, null, null, null)));
+    }
+
+    @Test
+    void actualizarPerfil_clienteEditaAOtro_lanza403() {
+        when(usuarioRepository.findById(5L)).thenReturn(Optional.of(usuario(5L, rolCliente, true)));
+        when(usuarioRepository.findById(6L)).thenReturn(Optional.of(usuario(6L, rolCliente, true)));
+
+        assertEstado(HttpStatus.FORBIDDEN, () -> servicio.actualizarPerfil(5L, 6L,
+                new ActualizarPerfilRequest("Nombre", null, null, null, null, null)));
+    }
+
+    @Test
+    void actualizarPerfil_sinActor_lanza401() {
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolTecnico, true)));
+
+        assertEstado(HttpStatus.UNAUTHORIZED, () -> servicio.actualizarPerfil(null, 2L,
+                new ActualizarPerfilRequest("Nombre", null, null, null, null, null)));
+    }
+
+    @Test
+    void actualizarPerfil_conActorInexistente_lanza401() {
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolTecnico, true)));
+        when(usuarioRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertEstado(HttpStatus.UNAUTHORIZED, () -> servicio.actualizarPerfil(99L, 2L,
+                new ActualizarPerfilRequest("Nombre", null, null, null, null, null)));
+    }
+
+    @Test
+    void actualizarPerfil_conActorInactivo_lanza403() {
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolTecnico, false)));
+
+        assertEstado(HttpStatus.FORBIDDEN, () -> servicio.actualizarPerfil(2L, 2L,
+                new ActualizarPerfilRequest("Nombre", null, null, null, null, null)));
+    }
+
+    @Test
+    void actualizarPerfil_conUsuarioInexistente_lanza404() {
+        when(usuarioRepository.findById(77L)).thenReturn(Optional.empty());
+
+        assertEstado(HttpStatus.NOT_FOUND, () -> servicio.actualizarPerfil(1L, 77L,
+                new ActualizarPerfilRequest("Nombre", null, null, null, null, null)));
     }
 
     @Test
     void actualizarPerfil_conNombreVacio_lanza400() {
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, rolTecnico, true)));
 
-        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.actualizarPerfil(2L,
+        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.actualizarPerfil(2L, 2L,
                 new ActualizarPerfilRequest("", "a@b.cl", null, null, null, null)));
     }
 
@@ -510,8 +575,9 @@ class UsuarioServiceTest {
 
         RecuperacionResponse respuesta = servicio.solicitarRecuperacion(" Usuario2@induztek.cl ");
 
-        assertEquals("123456", respuesta.codigo());
         assertEquals(LocalDateTime.of(2026, 11, 15, 12, 15), respuesta.expiraEn());
+        verify(notificador).enviarCodigoRecuperacion("usuario2@induztek.cl", "Usuario 2", "123456",
+                LocalDateTime.of(2026, 11, 15, 12, 15));
         assertEquals("123456", existente.getCodigoRecuperacion());
         verify(usuarioRepository).save(existente);
     }

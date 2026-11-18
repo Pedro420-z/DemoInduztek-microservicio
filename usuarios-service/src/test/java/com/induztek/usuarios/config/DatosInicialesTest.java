@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -50,6 +51,7 @@ class DatosInicialesTest {
         ReflectionTestUtils.setField(datosIniciales, "jefeNombre", "Jefe Inicial");
         ReflectionTestUtils.setField(datosIniciales, "jefeCorreo", "jefe@induztek.cl");
         ReflectionTestUtils.setField(datosIniciales, "jefeContrasena", "Induztek2026");
+        ReflectionTestUtils.setField(datosIniciales, "clientesContrasena", "Induztek2026");
     }
 
     private Rol rol(Long id, String codigo) {
@@ -73,19 +75,26 @@ class DatosInicialesTest {
         assertEquals(4, rolesGuardados.getValue().size());
         assertEquals("TECNICO", rolesGuardados.getValue().get(0).getCodigo());
 
-        ArgumentCaptor<Usuario> jefe = ArgumentCaptor.forClass(Usuario.class);
-        verify(usuarioRepository).save(jefe.capture());
-        assertEquals("jefe@induztek.cl", jefe.getValue().getCorreo());
-        assertEquals("hash", jefe.getValue().getPasswordHash());
-        assertEquals("JEFE_TECNICO", jefe.getValue().getRol().getCodigo());
-        assertTrue(jefe.getValue().isActivo());
-        assertTrue(jefe.getValue().isDebeCambiarContrasena());
+        ArgumentCaptor<Usuario> guardados = ArgumentCaptor.forClass(Usuario.class);
+        verify(usuarioRepository, times(5)).save(guardados.capture());
+        Usuario jefe = guardados.getAllValues().get(0);
+        assertEquals("jefe@induztek.cl", jefe.getCorreo());
+        assertEquals("hash", jefe.getPasswordHash());
+        assertEquals("JEFE_TECNICO", jefe.getRol().getCodigo());
+        assertTrue(jefe.isActivo());
+        assertTrue(jefe.isDebeCambiarContrasena());
+        assertEquals("INGENIERO", guardados.getAllValues().get(1).getRol().getCodigo());
+        assertEquals("TECNICO", guardados.getAllValues().get(2).getRol().getCodigo());
+        assertEquals("CLIENTE", guardados.getAllValues().get(3).getRol().getCodigo());
+        assertEquals("CLIENTE", guardados.getAllValues().get(4).getRol().getCodigo());
     }
 
     @Test
-    void run_conDatosExistentes_noCargaNada() {
+    void run_conDatosExistentes_noVuelveACargarNada() {
         when(rolRepository.count()).thenReturn(4L);
         when(usuarioRepository.count()).thenReturn(1L);
+        when(rolRepository.findAllByOrderByIdAsc()).thenReturn(List.of(rol(4L, DatosIniciales.CLIENTE)));
+        when(usuarioRepository.existsByCorreo(any())).thenReturn(true);
 
         datosIniciales.run();
 

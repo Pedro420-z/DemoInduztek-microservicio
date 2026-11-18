@@ -110,9 +110,10 @@ class UsuarioControllerTest {
 
     @Test
     void actualizarPerfil_responde200() throws Exception {
-        when(usuarioService.actualizarPerfil(eq(1L), any())).thenReturn(respuesta(1L, true));
+        when(usuarioService.actualizarPerfil(eq(1L), eq(1L), any())).thenReturn(respuesta(1L, true));
 
         mvc.perform(put("/api/usuarios/1")
+                        .header("X-Usuario-Id", "1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nombre\":\"Matías\",\"correo\":\"mgodoy@induztek.cl\"}"))
                 .andExpect(status().isOk());
@@ -141,15 +142,15 @@ class UsuarioControllerTest {
     }
 
     @Test
-    void solicitarRecuperacion_devuelveElCodigo() throws Exception {
+    void solicitarRecuperacion_devuelveElMensajeSinElCodigo() throws Exception {
         when(usuarioService.solicitarRecuperacion("mgodoy@induztek.cl"))
-                .thenReturn(new RecuperacionResponse("123456", LocalDateTime.of(2026, 11, 15, 12, 15)));
+                .thenReturn(new RecuperacionResponse("Enviamos un código a tu correo", LocalDateTime.of(2026, 11, 15, 12, 15)));
 
         mvc.perform(post("/api/usuarios/recuperacion")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"correo\":\"mgodoy@induztek.cl\"}"))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("123456")));
+                .andExpect(content().string(containsString("Enviamos un código")));
     }
 
     @Test

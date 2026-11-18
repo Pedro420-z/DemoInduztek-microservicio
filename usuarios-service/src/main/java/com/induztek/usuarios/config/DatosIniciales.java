@@ -37,6 +37,9 @@ public class DatosIniciales implements CommandLineRunner {
     @Value("${inicial.jefe.contrasena}")
     private String jefeContrasena;
 
+    @Value("${inicial.clientes.contrasena}")
+    private String clientesContrasena;
+
     @Override
     public void run(String... args) {
         if (rolRepository.count() == 0) {
@@ -62,6 +65,61 @@ public class DatosIniciales implements CommandLineRunner {
                     .debeCambiarContrasena(true)
                     .build());
         }
+        cargarPersonalDeEjemplo();
+        cargarEmpresasDeEjemplo();
+    }
+
+    private void cargarPersonalDeEjemplo() {
+        List<Rol> roles = rolRepository.findAllByOrderByIdAsc();
+        crearPersonal(roles, INGENIERO, "15234567-4", "Camila Rojas Vera", "camila.rojas@induztek.ejemplo");
+        crearPersonal(roles, TECNICO, "16345678-8", "Diego Soto Pino", "diego.soto@induztek.ejemplo");
+    }
+
+    private void crearPersonal(List<Rol> roles, String codigoRol, String rut, String nombre, String correo) {
+        if (usuarioRepository.existsByCorreo(correo)) {
+            return;
+        }
+        Rol rol = roles.stream().filter(r -> codigoRol.equals(r.getCodigo())).findFirst().orElseThrow();
+        usuarioRepository.save(Usuario.builder()
+                .rol(rol)
+                .rut(rut)
+                .nombre(nombre)
+                .correo(correo)
+                .passwordHash(passwordEncoder.encode(clientesContrasena))
+                .activo(true)
+                .debeCambiarContrasena(true)
+                .build());
+    }
+
+    private void cargarEmpresasDeEjemplo() {
+        Rol rolCliente = rolRepository.findAllByOrderByIdAsc().stream()
+                .filter(r -> CLIENTE.equals(r.getCodigo()))
+                .findFirst()
+                .orElseThrow();
+        crearEmpresa(rolCliente, "76482915-8", "Envasadora del Pacífico S.A.", "mfuentes@envpacifico.ejemplo",
+                "+56 9 0000 0101", "Agroindustria", "Marcela Fuentes Rojas", "Jefa de Mantenimiento");
+        crearEmpresa(rolCliente, "76903218-5", "Clínica Los Aromos Ltda.", "tleiva@losaromos.ejemplo",
+                "+56 9 0000 0104", "Salud", "Tomás Leiva Araya", "Supervisor Eléctrico");
+    }
+
+    private void crearEmpresa(Rol rolCliente, String rut, String nombre, String correo, String telefono,
+                              String giro, String contactoNombre, String contactoCargo) {
+        if (usuarioRepository.existsByCorreo(correo)) {
+            return;
+        }
+        usuarioRepository.save(Usuario.builder()
+                .rol(rolCliente)
+                .rut(rut)
+                .nombre(nombre)
+                .correo(correo)
+                .telefono(telefono)
+                .passwordHash(passwordEncoder.encode(clientesContrasena))
+                .activo(true)
+                .debeCambiarContrasena(true)
+                .giro(giro)
+                .contactoNombre(contactoNombre)
+                .contactoCargo(contactoCargo)
+                .build());
     }
 
     private Rol rol(String codigo, String nombre) {

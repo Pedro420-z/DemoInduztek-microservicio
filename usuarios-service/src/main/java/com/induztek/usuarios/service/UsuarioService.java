@@ -95,7 +95,7 @@ public class UsuarioService {
                 .telefono(limpiar(datos.telefono()))
                 .passwordHash(passwordEncoder.encode(contrasenaTemporal))
                 .debeCambiarContrasena(true)
-                .activo(actorEsJefe)
+                .activo(true)
                 .giro(creaCliente ? limpiar(datos.giro()) : null)
                 .contactoNombre(creaCliente ? limpiar(datos.contactoNombre()) : null)
                 .contactoCargo(creaCliente ? limpiar(datos.contactoCargo()) : null)
@@ -116,18 +116,12 @@ public class UsuarioService {
         return aRespuesta(usuario);
     }
 
-    public UsuarioResponse actualizarPerfil(Long id, ActualizarPerfilRequest datos) {
+    public UsuarioResponse actualizarPerfil(Long actorId, Long id, ActualizarPerfilRequest datos) {
         Usuario usuario = buscar(id);
+        exigirPuedeEditar(actorId, usuario);
         validarNombre(datos.nombre());
-        validarCorreo(datos.correo());
-
-        String correo = datos.correo().trim().toLowerCase();
-        if (usuarioRepository.existsByCorreoAndIdNot(correo, id)) {
-            throw error(HttpStatus.CONFLICT, "Ese correo ya está registrado");
-        }
 
         usuario.setNombre(datos.nombre().trim());
-        usuario.setCorreo(correo);
         usuario.setTelefono(limpiar(datos.telefono()));
         if (DatosIniciales.CLIENTE.equals(usuario.getRol().getCodigo())) {
             usuario.setGiro(limpiar(datos.giro()));
@@ -177,7 +171,8 @@ public class UsuarioService {
         usuario.setCodigoRecuperacion(codigo);
         usuario.setRecuperacionExpira(expira);
         usuarioRepository.save(usuario);
-        return new RecuperacionResponse(codigo, expira);
+        notificador.enviarCodigoRecuperacion(usuario.getCorreo(), usuario.getNombre(), codigo, expira);
+        return new RecuperacionResponse("Enviamos un código de recuperación a tu correo", expira);
     }
 
     public void confirmarRecuperacion(ConfirmarRecuperacionRequest datos) {
@@ -194,6 +189,29 @@ public class UsuarioService {
         usuario.setCodigoRecuperacion(null);
         usuario.setRecuperacionExpira(null);
         usuarioRepository.save(usuario);
+    }
+
+    private void exigirPuedeEditar(Long actorId, Usuario objetivo) {
+        if (actorId == null) {
+            throw error(HttpStatus.UNAUTHORIZED, "Falta indicar quién realiza la acción");
+        }
+        Usuario actor = usuarioRepository.findById(actorId)
+                .orElseThrow(() -> error(HttpStatus.UNAUTHORIZED, "El usuario que realiza la acción no existe"));
+        if (!actor.isActivo()) {
+            throw error(HttpStatus.FORBIDDEN, "La cuenta está inactiva");
+        }
+        if (actor.getId().equals(objetivo.getId())) {
+            return;
+        }
+        String rolActor = actor.getRol().getCodigo();
+        if (DatosIniciales.JEFE_TECNICO.equals(rolActor)) {
+            return;
+        }
+        boolean esPersonal = DatosIniciales.TECNICO.equals(rolActor) || DatosIniciales.INGENIERO.equals(rolActor);
+        if (esPersonal && DatosIniciales.CLIENTE.equals(objetivo.getRol().getCodigo())) {
+            return;
+        }
+        throw error(HttpStatus.FORBIDDEN, "No tienes permiso para modificar este usuario");
     }
 
     private Usuario exigirActorActivo(Long actorId) {
