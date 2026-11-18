@@ -1,6 +1,7 @@
 package com.induztek.protocolos.client;
 
 import com.induztek.protocolos.dto.EquipoExterno;
+import com.induztek.protocolos.dto.InstalacionExterno;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
@@ -37,6 +38,11 @@ class EquiposClienteTest {
         servidor.createContext("/api/equipos/5", exchange -> responder(exchange, 200, EQUIPO));
         servidor.createContext("/api/equipos/404", exchange -> responder(exchange, 404, "{}"));
         servidor.createContext("/api/equipos/500", exchange -> responder(exchange, 500, "{}"));
+        servidor.createContext("/api/instalaciones/2", exchange -> responder(exchange, 200,
+                "{\"id\":2,\"clienteId\":30,\"nombre\":\"Planta Norte\",\"ubicacion\":null,\"comunaId\":1,"
+                        + "\"comunaNombre\":\"Lampa\",\"regionId\":1,\"regionNombre\":\"RM\",\"observacionesAcceso\":null}"));
+        servidor.createContext("/api/instalaciones/404", exchange -> responder(exchange, 404, "{}"));
+        servidor.createContext("/api/instalaciones/500", exchange -> responder(exchange, 500, "{}"));
         servidor.start();
     }
 
@@ -91,6 +97,28 @@ class EquiposClienteTest {
         EquiposCliente cliente = new EquiposCliente("http://127.0.0.1:" + puertoLibre);
 
         ResponseStatusException error = assertThrows(ResponseStatusException.class, () -> cliente.buscar(5L));
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), error.getStatusCode().value());
+    }
+
+    @Test
+    void buscarInstalacion_conInstalacionExistente_devuelveSusDatos() {
+        Optional<InstalacionExterno> instalacion = new EquiposCliente(url()).buscarInstalacion(2L);
+
+        assertTrue(instalacion.isPresent());
+        assertEquals(30L, instalacion.get().clienteId());
+    }
+
+    @Test
+    void buscarInstalacion_inexistente_devuelveVacio() {
+        assertFalse(new EquiposCliente(url()).buscarInstalacion(404L).isPresent());
+    }
+
+    @Test
+    void buscarInstalacion_siElServicioFalla_lanza503() {
+        EquiposCliente cliente = new EquiposCliente(url());
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class, () -> cliente.buscarInstalacion(500L));
 
         assertEquals(HttpStatus.SERVICE_UNAVAILABLE.value(), error.getStatusCode().value());
     }

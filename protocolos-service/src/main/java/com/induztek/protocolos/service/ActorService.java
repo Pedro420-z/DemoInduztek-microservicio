@@ -17,6 +17,14 @@ public class ActorService {
     private final UsuariosCliente usuariosCliente;
 
     public UsuarioExterno exigirPersonalActivo(Long actorId) {
+        UsuarioExterno actor = exigirUsuarioActivo(actorId);
+        if (Roles.CLIENTE.equals(actor.rolCodigo())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Un cliente no puede realizar esta acción");
+        }
+        return actor;
+    }
+
+    public UsuarioExterno exigirUsuarioActivo(Long actorId) {
         if (actorId == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Falta indicar quién realiza la acción");
         }
@@ -25,9 +33,6 @@ public class ActorService {
                         "El usuario que realiza la acción no existe"));
         if (!actor.activo()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "La cuenta está inactiva");
-        }
-        if (Roles.CLIENTE.equals(actor.rolCodigo())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Un cliente no puede realizar esta acción");
         }
         return actor;
     }
