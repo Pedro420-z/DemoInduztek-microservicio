@@ -10,7 +10,10 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.springframework.core.ParameterizedTypeReference;
+
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -36,6 +39,19 @@ public class UsuariosCliente {
                     .body(UsuarioExterno.class));
         } catch (HttpClientErrorException.NotFound e) {
             return Optional.empty();
+        } catch (RestClientException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "No se pudo consultar el servicio de usuarios");
+        }
+    }
+
+    public List<UsuarioExterno> listar() {
+        try {
+            List<UsuarioExterno> lista = cliente.get()
+                    .uri("/api/usuarios")
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<List<UsuarioExterno>>() { });
+            return lista == null ? List.of() : lista;
         } catch (RestClientException e) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "No se pudo consultar el servicio de usuarios");
