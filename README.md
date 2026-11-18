@@ -135,19 +135,21 @@ El reporte queda en `<servicio>/target/site/jacoco/index.html`.
 ## Pendiente
 
 - Variación mayor al 25 % entre mediciones (RN-09).
-- Envío real de correos por SMTP (hoy simulado en consola).
 - Autenticación con tokens.
 
 ## Equipo
 
 - Gonzalo Bahamondes ([@eldeldeldede](https://github.com/eldeldeldede))
 - Pedro Cid ([@Pedro420-z](https://github.com/Pedro420-z))
-Correo real (SMTP) y datos de ejemplo
-usuarios-service envía por SMTP la contraseña temporal y el código de recuperación. Por defecto usa localhost:1025 (Mailpit, incluido en Laragon). Para usar Gmail u otro servidor se cambian spring.mail.* en application.properties. Si el envío falla, el correo se escribe en la consola del servicio.
-Al arrancar por primera vez se cargan 2 empresas clientes, un técnico y un ingeniero de ejemplo (contraseña inicial Induztek2026, deben cambiarla al ingresar), 4 instrumentos, 4 equipos y 2 actas con protocolos. Se puede desactivar con demo.cargar=false en protocolos-service.
-Orden de arranque: usuarios, equipos y protocolos. Si protocolos arranca antes, reintenta hasta 1 minuto.
 
-Reportes de acta del cliente
-POST /api/visitas/{id}/reportes (cliente): crea un reporte; si indica un protocolo formalizado, este pasa a OBSERVADO.
-GET /api/reportes-acta y GET /api/reportes-acta/{id}: el cliente ve los suyos; el personal ve todos.
-PUT /api/reportes-acta/{id} (ingeniero o jefe técnico): estado EN_REVISION, RESUELTO o RECHAZADO con respuesta escrita.
+## Correo real (SMTP) y datos de ejemplo
+
+- `usuarios-service` envía por SMTP la contraseña temporal y el código de recuperación. Por defecto usa `localhost:1025` (Mailpit, incluido en Laragon). Para usar Gmail u otro servidor se cambian `spring.mail.*` en `application.properties`. Si el envío falla, el correo se escribe en la consola del servicio.
+- Al arrancar por primera vez se cargan 2 empresas clientes, un técnico y un ingeniero de ejemplo (contraseña inicial `Induztek2026`, deben cambiarla al ingresar), 4 instrumentos, 4 equipos y 2 actas con protocolos. Se puede desactivar con `demo.cargar=false` en `protocolos-service`.
+- Orden de arranque: usuarios, equipos y protocolos. Si protocolos arranca antes, reintenta hasta 1 minuto.
+
+## Reportes de acta del cliente
+
+- `POST /api/visitas/{id}/reportes` (cliente): crea un reporte; si indica un protocolo formalizado, este pasa a OBSERVADO.
+- `GET /api/reportes-acta` y `GET /api/reportes-acta/{id}`: el cliente ve los suyos; el personal ve todos.
+- `PUT /api/reportes-acta/{id}` (ingeniero o jefe técnico): estado EN_REVISION, RESUELTO o RECHAZADO con respuesta escrita.
