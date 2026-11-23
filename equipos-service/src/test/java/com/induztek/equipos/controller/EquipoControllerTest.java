@@ -101,9 +101,9 @@ class EquipoControllerTest {
 
     @Test
     void actualizar_responde200() throws Exception {
-        when(equipoService.actualizar(eq(1L), any(EquipoRequest.class))).thenReturn(respuesta());
+        when(equipoService.actualizar(eq(7L), eq(1L), any(EquipoRequest.class))).thenReturn(respuesta());
 
-        mvc.perform(put("/api/equipos/1").contentType(MediaType.APPLICATION_JSON).content(CUERPO))
+        mvc.perform(put("/api/equipos/1").header("X-Usuario-Id", 7).contentType(MediaType.APPLICATION_JSON).content(CUERPO))
                 .andExpect(status().isOk());
     }
 }

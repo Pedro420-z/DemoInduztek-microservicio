@@ -28,6 +28,7 @@ public class EquipoService {
     private final InstalacionRepository instalacionRepository;
     private final TipoEquipoRepository tipoEquipoRepository;
     private final Clock reloj;
+    private final ActorService actorService;
 
     public List<EquipoResponse> listar(Long clienteId, Long instalacionId, Long tipoEquipoId, String buscar) {
         String texto = buscar == null ? "" : buscar.trim().toLowerCase();
@@ -59,7 +60,8 @@ public class EquipoService {
         return aRespuesta(equipoRepository.save(nuevo));
     }
 
-    public EquipoResponse actualizar(Long id, EquipoRequest datos) {
+    public EquipoResponse actualizar(Long actorId, Long id, EquipoRequest datos) {
+        actorService.exigirJefeTecnico(actorId);
         Equipo equipo = buscar(id, null);
         String tag = validarTag(datos.tag());
         TipoEquipo tipo = buscarTipo(datos.tipoEquipoId());

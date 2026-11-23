@@ -46,6 +46,9 @@ class EquipoServiceTest {
     @Mock
     private TipoEquipoRepository tipoEquipoRepository;
 
+    @Mock
+    private ActorService actorService;
+
     private final Clock reloj = Clock.fixed(Instant.parse("2026-11-15T12:00:00Z"), ZoneOffset.UTC);
 
     private EquipoService servicio;
@@ -61,7 +64,7 @@ class EquipoServiceTest {
 
     @BeforeEach
     void preparar() {
-        servicio = new EquipoService(equipoRepository, instalacionRepository, tipoEquipoRepository, reloj);
+        servicio = new EquipoService(equipoRepository, instalacionRepository, tipoEquipoRepository, reloj, actorService);
     }
 
     private Equipo equipo(Long id, Instalacion instalacion, String tag, TipoEquipo tipo) {
@@ -326,7 +329,7 @@ class EquipoServiceTest {
         when(tipoEquipoRepository.findById(5L)).thenReturn(Optional.of(rele));
         when(equipoRepository.save(existente)).thenReturn(existente);
 
-        EquipoResponse respuesta = servicio.actualizar(3L, peticion(9L, " RL-02 ", 5L));
+        EquipoResponse respuesta = servicio.actualizar(1L, 3L, peticion(9L, " RL-02 ", 5L));
 
         assertEquals("RL-02", respuesta.tag());
         assertEquals("Relé de protección", respuesta.tipoEquipoNombre());
@@ -337,14 +340,14 @@ class EquipoServiceTest {
     void actualizar_conIdInexistente_lanza404() {
         when(equipoRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertEstado(HttpStatus.NOT_FOUND, () -> servicio.actualizar(99L, peticion(1L, "TR-01", 1L)));
+        assertEstado(HttpStatus.NOT_FOUND, () -> servicio.actualizar(1L, 99L, peticion(1L, "TR-01", 1L)));
     }
 
     @Test
     void actualizar_conTagVacio_lanza400() {
         when(equipoRepository.findById(3L)).thenReturn(Optional.of(equipo(3L, planta, "TR-01", transformador)));
 
-        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.actualizar(3L, peticion(1L, "", 1L)));
+        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.actualizar(1L, 3L, peticion(1L, "", 1L)));
     }
 
     @Test
@@ -352,7 +355,7 @@ class EquipoServiceTest {
         when(equipoRepository.findById(3L)).thenReturn(Optional.of(equipo(3L, planta, "TR-01", transformador)));
         when(tipoEquipoRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.actualizar(3L, peticion(1L, "TR-01", 99L)));
+        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.actualizar(1L, 3L, peticion(1L, "TR-01", 99L)));
     }
 
     @Test
@@ -361,6 +364,15 @@ class EquipoServiceTest {
         when(tipoEquipoRepository.findById(1L)).thenReturn(Optional.of(transformador));
         when(equipoRepository.existsByInstalacionIdAndTagAndIdNot(1L, "TR-02", 3L)).thenReturn(true);
 
-        assertEstado(HttpStatus.CONFLICT, () -> servicio.actualizar(3L, peticion(1L, "TR-02", 1L)));
+        assertEstado(HttpStatus.CONFLICT, () -> servicio.actualizar(1L, 3L, peticion(1L, "TR-02", 1L)));
+    }
+
+    @Test
+    void actualizar_siNoEsElJefeTecnico_lanza403SinTocarElEquipo() {
+        when(actorService.exigirJefeTecnico(2L))
+                .thenThrow(new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo el Jefe técnico puede realizar esta acción"));
+
+        assertEstado(HttpStatus.FORBIDDEN, () -> servicio.actualizar(2L, 3L, peticion(1L, "TR-01", 1L)));
+        verify(equipoRepository, never()).save(any());
     }
 }
