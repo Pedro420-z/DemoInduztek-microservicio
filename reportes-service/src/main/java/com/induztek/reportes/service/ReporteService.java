@@ -28,8 +28,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ReporteService {
 
-    private static final String FORMALIZADO = "FORMALIZADO";
     private static final String ANULADO = "ANULADO";
+    private static final String BORRADOR = "BORRADOR";
 
     private final ActorService actorService;
     private final EquiposCliente equiposCliente;
@@ -40,8 +40,8 @@ public class ReporteService {
         boolean cliente = esCliente(actor);
         EquipoExterno equipo = equiposCliente.obtener(equipoId, cliente ? actor.id() : null)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Equipo no encontrado"));
-        List<ProtocoloExterno> protocolos = ordenar(protocolosCliente.protocolos(
-                equipo.id(), null, estadoVisible(cliente), null));
+        List<ProtocoloExterno> protocolos = ordenar(visibles(protocolosCliente.protocolos(
+                equipo.id(), null, null, null), cliente));
         Map<String, Long> porResultado = protocolos.stream()
                 .filter(p -> p.resultadoGlobal() != null)
                 .collect(Collectors.groupingBy(ProtocoloExterno::resultadoGlobal, TreeMap::new, Collectors.counting()));
@@ -69,7 +69,7 @@ public class ReporteService {
         for (InstalacionExterno instalacion : instalaciones) {
             for (VisitaExterno visita : protocolosCliente.visitas(instalacion.id(), true)) {
                 actas.add(new ActaResponse(visita, instalacion.nombre(),
-                        ordenar(protocolosCliente.protocolos(null, visita.id(), estadoVisible(cliente), null))));
+                        ordenar(visibles(protocolosCliente.protocolos(null, visita.id(), null, null), cliente))));
             }
         }
         actas.sort(Comparator.comparing((ActaResponse a) -> a.visita().fecha(),
@@ -83,8 +83,8 @@ public class ReporteService {
     }
 
     private ResumenEquipoResponse resumir(EquipoExterno equipo, boolean cliente) {
-        List<ProtocoloExterno> vigentes = ordenar(protocolosCliente.protocolos(
-                equipo.id(), null, estadoVisible(cliente), null)).stream()
+        List<ProtocoloExterno> vigentes = ordenar(visibles(protocolosCliente.protocolos(
+                equipo.id(), null, null, null), cliente)).stream()
                 .filter(p -> !ANULADO.equals(p.estado()))
                 .toList();
         if (vigentes.isEmpty()) {
@@ -103,8 +103,13 @@ public class ReporteService {
                 .toList();
     }
 
-    private String estadoVisible(boolean cliente) {
-        return cliente ? FORMALIZADO : null;
+    private List<ProtocoloExterno> visibles(List<ProtocoloExterno> protocolos, boolean cliente) {
+        if (!cliente) {
+            return protocolos;
+        }
+        return protocolos.stream()
+                .filter(p -> !BORRADOR.equals(p.estado()) && !ANULADO.equals(p.estado()))
+                .toList();
     }
 
     private boolean esCliente(UsuarioExterno actor) {

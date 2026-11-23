@@ -79,13 +79,15 @@ class ReporteServiceTest {
     }
 
     @Test
-    void historialEquipo_paraCliente_filtraPorSuEmpresaYSoloMuestraFormalizados() {
+    void historialEquipo_paraCliente_filtraPorSuEmpresaYNoMuestraBorradoresNiAnulados() {
         when(equiposCliente.obtener(5L, 30L)).thenReturn(Optional.of(equipo(5L)));
-        when(protocolosCliente.protocolos(5L, null, "FORMALIZADO", null)).thenReturn(List.of(
+        when(protocolosCliente.protocolos(5L, null, null, null)).thenReturn(List.of(
                 protocolo(1L, "FORMALIZADO", "APROBADO", LocalDateTime.of(2026, 1, 1, 10, 0)),
                 protocolo(2L, "FORMALIZADO", "RECHAZADO", LocalDateTime.of(2026, 6, 1, 10, 0)),
-                protocolo(3L, "FORMALIZADO", "APROBADO", LocalDateTime.of(2026, 3, 1, 10, 0)),
-                protocolo(4L, "FORMALIZADO", null, null)));
+                protocolo(3L, "REGISTRADO_TERRENO", "APROBADO", LocalDateTime.of(2026, 3, 1, 10, 0)),
+                protocolo(4L, "OBSERVADO", null, null),
+                protocolo(5L, "BORRADOR", "APROBADO", LocalDateTime.of(2026, 7, 1, 10, 0)),
+                protocolo(6L, "ANULADO", "RECHAZADO", LocalDateTime.of(2026, 8, 1, 10, 0))));
 
         HistorialEquipoResponse historial = servicio.historialEquipo(30L, 5L);
 
@@ -104,7 +106,7 @@ class ReporteServiceTest {
                 () -> servicio.historialEquipo(30L, 5L));
 
         assertEquals(HttpStatus.NOT_FOUND.value(), error.getStatusCode().value());
-        verify(protocolosCliente, never()).protocolos(5L, null, "FORMALIZADO", null);
+        verify(protocolosCliente, never()).protocolos(5L, null, null, null);
     }
 
     @Test
@@ -122,10 +124,11 @@ class ReporteServiceTest {
     @Test
     void equipos_paraCliente_usaSuPropioIdAunqueIndiqueOtro() {
         when(equiposCliente.listar(30L)).thenReturn(List.of(equipo(5L), equipo(6L)));
-        when(protocolosCliente.protocolos(5L, null, "FORMALIZADO", null)).thenReturn(List.of(
+        when(protocolosCliente.protocolos(5L, null, null, null)).thenReturn(List.of(
                 protocolo(1L, "FORMALIZADO", "APROBADO", LocalDateTime.of(2026, 1, 1, 10, 0)),
-                protocolo(2L, "FORMALIZADO", "OBSERVADO", LocalDateTime.of(2026, 5, 1, 10, 0))));
-        when(protocolosCliente.protocolos(6L, null, "FORMALIZADO", null)).thenReturn(List.of());
+                protocolo(2L, "FORMALIZADO", "OBSERVADO", LocalDateTime.of(2026, 5, 1, 10, 0)),
+                protocolo(9L, "BORRADOR", "APROBADO", LocalDateTime.of(2026, 12, 1, 10, 0))));
+        when(protocolosCliente.protocolos(6L, null, null, null)).thenReturn(List.of());
 
         List<ResumenEquipoResponse> resumenes = servicio.equipos(30L, 99L);
 
@@ -158,11 +161,9 @@ class ReporteServiceTest {
         when(equiposCliente.instalaciones(null)).thenReturn(List.of(planta, bodega));
         when(protocolosCliente.visitas(2L, true)).thenReturn(List.of(visita(1L, LocalDate.of(2026, 3, 1))));
         when(protocolosCliente.visitas(3L, true)).thenReturn(List.of(visita(2L, LocalDate.of(2026, 9, 1))));
-        when(protocolosCliente.protocolos(null, 1L, "FORMALIZADO", null)).thenReturn(List.of(
-                protocolo(1L, "FORMALIZADO", "APROBADO", LocalDateTime.of(2026, 3, 1, 10, 0))));
-        when(protocolosCliente.protocolos(null, 2L, "FORMALIZADO", null)).thenReturn(List.of());
         when(protocolosCliente.protocolos(null, 1L, null, null)).thenReturn(List.of(
-                protocolo(1L, "BORRADOR", null, LocalDateTime.of(2026, 3, 1, 10, 0))));
+                protocolo(1L, "FORMALIZADO", "APROBADO", LocalDateTime.of(2026, 3, 1, 10, 0)),
+                protocolo(9L, "BORRADOR", null, LocalDateTime.of(2026, 3, 2, 10, 0))));
         when(protocolosCliente.protocolos(null, 2L, null, null)).thenReturn(List.of());
     }
 
@@ -175,6 +176,7 @@ class ReporteServiceTest {
         assertEquals(2, actas.size());
         assertEquals("Bodega", actas.get(0).instalacionNombre());
         assertEquals("Planta Norte", actas.get(1).instalacionNombre());
+        assertEquals(1, actas.get(1).protocolos().size());
         assertEquals("FORMALIZADO", actas.get(1).protocolos().get(0).estado());
     }
 
