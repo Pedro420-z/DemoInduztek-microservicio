@@ -121,6 +121,26 @@ class VisitaServiceTest {
     }
 
     @Test
+    void crear_conIngenieroComoParticipante_laAcepta() {
+        usuarioExiste(10L, "INGENIERO", true);
+        when(visitaRepository.save(any(Visita.class))).thenAnswer(i -> i.getArgument(0));
+
+        VisitaResponse respuesta = servicio.crear(10L,
+                peticion("OT-9", 1L, FECHA, TipoVisita.SOLO_PRUEBAS, 10L, List.of(10L)));
+
+        assertEquals(List.of(10L), respuesta.participantesIds());
+    }
+
+    @Test
+    void crear_conClienteComoParticipante_lanza400() {
+        usuarioExiste(10L, "INGENIERO", true);
+        usuarioExiste(30L, "CLIENTE", true);
+
+        assertEstado(HttpStatus.BAD_REQUEST, () -> servicio.crear(10L,
+                peticion("OT-9", 1L, FECHA, TipoVisita.SOLO_PRUEBAS, 10L, List.of(30L))));
+    }
+
+    @Test
     void crear_sinPermiso_noGuardaNada() {
         doThrow(new ResponseStatusException(HttpStatus.FORBIDDEN)).when(actorService).exigirPersonalActivo(4L);
 

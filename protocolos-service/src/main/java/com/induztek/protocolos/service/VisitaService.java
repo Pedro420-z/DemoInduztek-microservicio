@@ -128,8 +128,9 @@ public class VisitaService {
         for (Long id : participantes) {
             UsuarioExterno tecnico = usuariosCliente.buscar(id)
                     .orElseThrow(() -> error(HttpStatus.BAD_REQUEST, "El participante " + id + " no existe"));
-            if (!tecnico.activo() || !Roles.TECNICO.equals(tecnico.rolCodigo())) {
-                throw error(HttpStatus.BAD_REQUEST, "Los participantes deben ser Técnicos activos");
+            boolean personalTerreno = Roles.TECNICO.equals(tecnico.rolCodigo()) || Roles.INGENIERO.equals(tecnico.rolCodigo());
+            if (!tecnico.activo() || !personalTerreno) {
+                throw error(HttpStatus.BAD_REQUEST, "Los participantes deben ser Técnicos o Ingenieros activos");
             }
         }
         return participantes;
