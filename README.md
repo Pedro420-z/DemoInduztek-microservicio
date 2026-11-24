@@ -43,7 +43,16 @@ Las bases de datos se crean solas al arrancar (`createDatabaseIfNotExist=true`) 
 .\mvnw -pl api-gateway spring-boot:run
 ```
 
-También puede usarse `iniciar-servicios.bat` (doble clic), que abre todos en ese orden.
+También puede usarse `iniciar-servicios.bat` (doble clic), que abre todos en ese orden y espera a que cada uno esté listo antes de iniciar el siguiente.
+
+Para que los correos salgan por Gmail, crear junto al `.bat` un archivo `correo.local.bat` (está ignorado por git, no se sube) con estas dos líneas:
+
+```
+set MAIL_USUARIO=cuenta@gmail.com
+set MAIL_CLAVE=contraseña-de-aplicación
+```
+
+Si ese archivo no existe, el `.bat` arranca igual y los correos se escriben en la consola de `usuarios-service`.
 
 3. Esperar el mensaje `Started ...Application` en cada ventana.
 
