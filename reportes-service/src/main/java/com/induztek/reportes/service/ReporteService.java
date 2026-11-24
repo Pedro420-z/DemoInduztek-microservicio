@@ -67,7 +67,7 @@ public class ReporteService {
         }
         List<ActaResponse> actas = new ArrayList<>();
         for (InstalacionExterno instalacion : instalaciones) {
-            for (VisitaExterno visita : protocolosCliente.visitas(instalacion.id(), true)) {
+            for (VisitaExterno visita : protocolosCliente.visitas(instalacion.id(), null)) {
                 actas.add(new ActaResponse(visita, instalacion.nombre(),
                         ordenar(visibles(protocolosCliente.protocolos(null, visita.id(), null, null), cliente))));
             }

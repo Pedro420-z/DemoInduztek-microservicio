@@ -159,8 +159,8 @@ class ReporteServiceTest {
         InstalacionExterno bodega = new InstalacionExterno(3L, 30L, "Bodega", null, null, null, null, null, null);
         when(equiposCliente.instalaciones(30L)).thenReturn(List.of(planta, bodega));
         when(equiposCliente.instalaciones(null)).thenReturn(List.of(planta, bodega));
-        when(protocolosCliente.visitas(2L, true)).thenReturn(List.of(visita(1L, LocalDate.of(2026, 3, 1))));
-        when(protocolosCliente.visitas(3L, true)).thenReturn(List.of(visita(2L, LocalDate.of(2026, 9, 1))));
+        when(protocolosCliente.visitas(2L, null)).thenReturn(List.of(visita(1L, LocalDate.of(2026, 3, 1))));
+        when(protocolosCliente.visitas(3L, null)).thenReturn(List.of(visita(2L, LocalDate.of(2026, 9, 1))));
         when(protocolosCliente.protocolos(null, 1L, null, null)).thenReturn(List.of(
                 protocolo(1L, "FORMALIZADO", "APROBADO", LocalDateTime.of(2026, 3, 1, 10, 0)),
                 protocolo(9L, "BORRADOR", null, LocalDateTime.of(2026, 3, 2, 10, 0))));
